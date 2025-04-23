@@ -1,0 +1,98 @@
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: loki-sec
+    hostname: loki
+    user: "root"
+    volumes:
+      - /var/lib/loki:/loki
+      - /var/lib/loki/rules:/loki/rules
+      - /var/lib/loki/chunks:/loki/chunks
+      - ./loki-config.yml:/etc/loki/loki-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    ports:
+      - "3200:3200"
+    networks:
+      seclab:
+        ipv4_address: 192.168.50.12
+  
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-sec
+    user: "root"
+    volumes:
+      - /var/log/suricata:/var/log/suricata
+      - /var/lib/suricata:/var/lib/suricata
+      - ./promtail-config.yml:/etc/promtail/promtail-config.yaml
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    restart: unless-stopped
+    networks:
+      seclab:
+        ipv4_address: 192.168.50.13
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-sec
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    networks:
+      seclab:
+        ipv4_address: 192.168.50.14
+
+  suricata:
+    image: jasonish/suricata
+    container_name: suricata-sec
+    volumes:
+      - ./suricata.rules:/etc/suricata/rules/local.rules
+      - /var/log/suricata:/var/log/suricata
+      - /var/lib/suricata:/var/lib/suricata
+      - ./suricata-logs:/var/log/suricata
+    command: ["-i", "eth0"]
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+      - NET_RAW
+    network_mode: host
+  
+  kali:
+    image: kalilinux/kali-rolling
+    container_name: kali-swc
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      seclab:
+        ipv4_address: 192.168.50.10
+    
+  metasploitable:
+    image: tleemcjr/metasploitable2
+    container_name: metasploitable-sec
+    restart: always
+    privileged: true
+    ports:
+      - "2222:22"    
+      - "3306:3306"  
+      - "5900:5900"  
+      - "8180:8180" 
+    networks:
+      seclab:
+        ipv4_address: 192.168.50.20
+        
+networks:
+  seclab:
+    name: seclab
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.50.0/24
+
+volumes:
+  grafana-storage: {}
